@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "rootDir": ".",
+    "module": "commonjs",
+    "noImplicitAny": true,
+    "removeComments": true,
+    "preserveConstEnums": true,
+    "sourceMap": true,
+    "lib": ["ES6", "DOM", "ES2017"],
+    "target": "es5",
+    "outDir": "dist"
+  },
+  "exclude": ["node_modules", "**/*.spec.ts"],
+}
