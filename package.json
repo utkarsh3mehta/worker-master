@@ -1,21 +1,24 @@
 {
-  "name": "tabi-workers",
+  "name": "tabi-journey",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.ts",
+  "description": "Bull queue based journey builder execution",
+  "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
   "license": "ISC",
-  "dependencies": {
-    "amqplib": "^0.10.3",
-    "axios": "^0.27.2",
-    "tree-model": "^1.0.7"
-  },
-  "type": "commonjs",
   "devDependencies": {
-    "@types/amqplib": "^0.8.2",
-    "@types/node": "^18.7.18"
+    "@types/bull": "^3.15.9",
+    "@types/node": "^18.11.0",
+    "@types/nodemailer": "^6.4.6"
+  },
+  "dependencies": {
+    "axios": "^0.27.2",
+    "bull": "^4.10.1",
+    "bull-arena": "^3.29.5",
+    "dotenv": "^16.0.3",
+    "nodemailer": "^6.8.0",
+    "tree-model": "^1.0.7"
   }
 }

@@ -1,54 +1,115 @@
-// import TreeModel from "tree-model";
-import { AxiosError } from "axios";
-import * as TreeModel from "tree-model";
+import * as Bull from "bull";
 import api from "./api";
-import * as amqp from "amqplib/callback_api";
+import { AxiosError } from "axios";
+import { Edge, FlowNode, MessageData, Queues } from "./types";
+import * as TreeModel from "tree-model";
+import * as dotenv from "dotenv";
+import { data } from "./example";
+import {
+  addToSegment,
+  sendEmail,
+  sendPushNotification,
+  sendSMS,
+  waitDate,
+  waitTime,
+} from "./workers";
 
-interface FlowNode {
-  id: string;
-  type: string;
-  position: {
-    x: number;
-    y: number;
-  };
-  data: {
-    nodeid: string;
-    name: string;
-    type: string;
-    icon: string;
-    innerHTML?: {
-      __html: string;
-    };
-    selectedValue?: object;
-    sourceHandle?: Array<{
-      id: string;
-      position: string;
-      style: object;
-      isConnectable: boolean;
-    }>;
-    targetHandle?: Array<{
-      id: string;
-      position: string;
-      style: object;
-      isConnectable: boolean;
-    }>;
-  };
+dotenv.config();
+
+const AllQueues: Queues = {};
+async function onProcess(job: Bull.Job, done: Bull.DoneCallback) {
+  console.log("processing", job.queue.name, job.id);
+  let data = job.data;
+  let nodeid = data.node.data.nodeid;
+  if (nodeid === "send-email") await sendEmail(data.data);
+  else if (nodeid === "send-push-notification")
+    await sendPushNotification(data.data);
+  else if (nodeid === "send-sms") await sendSMS(data.data);
+  else if (nodeid === "add-to-segment") await addToSegment(data.data);
+  else if (nodeid === "wait-date") await waitDate(data.node);
+  else if (nodeid === "wait-time") await waitTime(data.data);
+  return done(null, { nodeid });
 }
-
-interface Edge {
-  id: string;
-  source: string;
-  sourceHandle: string;
-  target: string;
-  targetHandle: string;
-  type: string;
-  data: object;
+async function onActive(job: Bull.Job, jobPromise: Bull.JobPromise) {
+  console.log("activating", job.queue.name, job.id);
+  let data = job.data;
+  let nodeid = data.node.data.nodeid;
+  if (
+    [
+      "send-email",
+      "send-push-notification",
+      "send-sms",
+      "add-to-segment",
+      "wait-date",
+      "wait-time",
+    ].includes(nodeid)
+  ) {
+  } else {
+    console.log("canceling job", nodeid);
+    jobPromise.cancel;
+  }
+}
+function onWaiting(jobId: Bull.JobId) {
+  console.log("waiting for", jobId);
+}
+function onCleaned(jobs: Bull.Job[], status: Bull.JobStatusClean) {
+  console.log(
+    "cleaned job ids",
+    jobs.map((j) => (j.id, j.queue)),
+    status
+  );
+}
+function onCompleted(job: Bull.Job, result: any) {
+  console.log("completed", job.queue.name, job.id, "result", result);
+}
+function onDrained() {
+  console.log("drained");
+  // TODO: delete AllQueue[queue_name]
+  // TODO: delete redis bull queue_name keys
+}
+function onError(err: Error) {
+  console.log("error", err);
+}
+function onFailed(job: Bull.Job, err: Error) {
+  console.log("failed", job.queue.name, job.id, "error", err);
+}
+function onPaused() {
+  console.log("paused");
+}
+function onProgress() {
+  console.log("progress updated");
+}
+function onRemoved(job: Bull.Job) {
+  console.log("removed", job.queue.name, job.id);
+}
+function onResumed() {
+  console.log("resumed");
+}
+function onStalled(job: Bull.Job) {
+  console.log("stalled", job.queue.name, job.id);
 }
 
 const startJourney = (id: number) => {
   api
     .get(`journey/${id}`)
-    .then((res) => {
+    .then(async (res) => {
+      let now = new Date().getTime();
+      let queue_name = `_${id}-${now}`;
+      AllQueues[queue_name] = {};
+      AllQueues[queue_name].Q = new Bull(queue_name);
+      AllQueues[queue_name].Q.process(onProcess);
+      AllQueues[queue_name].Q.on("active", onActive);
+      AllQueues[queue_name].Q.on("cleaned", onCleaned);
+      AllQueues[queue_name].Q.on("completed", onCompleted);
+      AllQueues[queue_name].Q.on("drained", onDrained);
+      AllQueues[queue_name].Q.on("error", onError);
+      AllQueues[queue_name].Q.on("failed", onFailed);
+      AllQueues[queue_name].Q.on("paused", onPaused);
+      AllQueues[queue_name].Q.on("progress", onProgress);
+      AllQueues[queue_name].Q.on("removed", onRemoved);
+      AllQueues[queue_name].Q.on("resumed", onResumed);
+      AllQueues[queue_name].Q.on("stalled", onStalled);
+      AllQueues[queue_name].Q.on("waiting", onWaiting);
       let example = JSON.parse(res.data.data.data);
       let connections: Edge[] = <Edge[]>(
         example.elements.filter((e: any) => isNaN(parseInt(e.id)))
@@ -72,18 +133,6 @@ const startJourney = (id: number) => {
         });
       };
 
-      /**
-       * Find the node which is not a target in any connections.
-       * This node will be the start of the jounrey. Let's name it 'start'
-       *
-       * Find all connections where the sourceHandle is matches the end of 'start'.nodeid.
-       * .match(/.*type-nodeid^/)
-       * These are the starting connections. Let's name them 'starters'
-       *
-       * We save the sequence of the jounrey till a condition node
-       */
-
-      // Find root element
       let rootElement: FlowNode = {
         id: "",
         type: "",
@@ -97,14 +146,13 @@ const startJourney = (id: number) => {
           continue;
         } else {
           if (rootElement.id) {
-            console.error("root element is not empty", e.id);
           } else rootElement = e;
         }
       }
 
       if (!rootElement.id) {
         console.error("No root element found");
-        process.exit(1);
+        process.exit(1)
       }
 
       const journey = new TreeModel();
@@ -112,119 +160,49 @@ const startJourney = (id: number) => {
       const root = journey.parse(rootElement);
       buildWorkerTree(root);
 
-      amqp.connect(
-        "amqp://127.0.0.1",
-        (err0: any, connection: amqp.Connection) => {
-          if (err0) throw err0;
-
-          connection.createChannel((err1: any, channel: amqp.Channel) => {
-            if (err1) throw err1;
-
-            let j_queue = "journey_v1";
-            channel.assertQueue(j_queue, { durable: false });
-            console.log("sending starting message");
-            channel.sendToQueue(
-              j_queue,
-              Buffer.from("Starting walk through root")
-            );
-
-            let strategy: TreeModel.StrategyName = "pre"; // possible strategy to be used: breadth & pre
-            console.log("strategy", strategy);
-            root.walk({ strategy: strategy }, (node) => {
-              console.log("node", {
-                nodeid: node.model.data.nodeid,
-                id: node.model.id,
-                type: node.model.type,
-              });
-              let message = {
-                data: {
-                  _id: {
-                    $oid: "63288006e8ac9ebbf2b5ecff",
-                  },
-                  transaction_number: 1,
-                  price_per_ticket: 55,
-                  discount: 0,
-                  loyality_earned: 0,
-                  taxes: 13.412,
-                  service_charge: 0,
-                  show_date: "2022-08-18",
-                  show_time: "16:00",
-                  cinema_name: "Khurais - Al Othaim Mall",
-                  movie_name: "Minions: The Rise of Gru",
-                  cast_crew_list:
-                    "Alan Arkin--Actor,Brad Ableson--Director,Jonathan del Val--Director,Kyle Balda--Director,Pierre Coffin--Actor,Steve Carell--Actor",
-                  movie_id: 1,
-                  genre_name: "Adventure, Comedy",
-                  lang_name: "English",
-                  subtitle_1_language: "Arabic",
-                  synopsis:
-                    "The untold story of one twelve-year-old's dream to become the world's greatest supervillain.",
-                  is_voucher_applied: "N",
-                  voucher_name: "",
-                  seat_type_name: "Standard",
-                  seat_name: "D6",
-                  movie_format: "2D",
-                  cash_card_amount: 0,
-                  payment_mode: "Cash",
-                  cine_address:
-                    "Kharis Branch Rd, Saudi Arabia An Nasim Ash Sharqi, Riyadh 14241",
-                  city_name: "ar-Riyad",
-                  country_name: "Saudi Arabia",
-                  booking_source: "boxoffice",
-                  first_name: "",
-                  last_name: "",
-                  cust_mobile: "",
-                  cust_email: "",
-                  cust_dob: "",
-                  gender: "",
-                  guest_first_name: "",
-                  guest_last_name: "",
-                  guest_mobile: "",
-                  guest_email: "",
-                  is_refund: "N",
-                  refund_amount: 0,
-                  refund_reason: "",
-                  screen_count: 57,
-                  screen_id: 2,
-                  screen_name: "Screen 2",
-                  booking_date: "2022-08-17",
-                  booking_time: "16:08",
-                  booking_timestamp: 1660754429,
-                  transaction_time: "16:08",
-                  transaction_date: "2022-08-17",
-                  user_type: "register",
-                  actor_list: ["Alan Arkin", "Pierre Coffin", "Steve Carell"],
-                  director_list: [
-                    "Brad Ableson",
-                    "Jonathan del Val",
-                    "Kyle Balda",
-                  ],
-                  actress_list: [""],
-                  user_first_name: "",
-                  user_last_name: "",
-                  user_mobile_number: "",
-                  user_email: "",
-                  user_gender: "",
-                  user_dob: "",
-                },
-                node: node.model.data.nodeid,
-              };
-              // console.log("message", message);
-              channel.sendToQueue(
-                j_queue,
-                Buffer.from(JSON.stringify(message))
-              );
-              // console.log("sent to queue", isSent);
-              return true;
-            });
-            console.log("closing connection");
-            connection.close();
-            process.exit(0);
-          });
+      let strategy: TreeModel.StrategyName = "pre"; // possible strategy to be used: breadth & pre
+      let nodes: MessageData[] = [];
+      root.walk({ strategy }, (node) => {
+        let message = {
+          data,
+          node: node.model,
+        };
+        // AllQueues[queue_name].Q.add(message);
+        nodes.push(message);
+        return true;
+      });
+      let delay = 0;
+      for (const n of nodes) {
+        // console.log("adding to queue", n.node.data.nodeid);
+        if (
+          n.node.data.nodeid === "wait-date" ||
+          n.node.data.nodeid === "wait-time"
+        ) {
+          if (n.node.data.nodeid === "wait-date") {
+            let date = new Date(n.node.data.selectedValue["wait-date"]);
+            let diff = Math.abs(now - date.getTime());
+            delay += diff;
+          } else {
+            let time = new Date();
+            let selectedTime = n.node.data.selectedValue["wait-time"]
+              .split(":")
+              .map((v) => parseInt(v));
+            time.setHours(selectedTime[0]);
+            time.setMinutes(selectedTime[1]);
+            let diff = Math.abs(now - time.getTime());
+            delay += diff;
+          }
         }
-      );
+        // console.log("delay", delay);
+        await AllQueues[queue_name].Q.add(n, { delay });
+      }
+      return true;
+      // process.exit(0);
     })
-    .catch((err: AxiosError) => console.error("error", err.response.data));
+    .catch((err: AxiosError) => {
+      console.log("API error", err);
+    });
 };
 
 startJourney(1);
+// console.log(AllQueues);
