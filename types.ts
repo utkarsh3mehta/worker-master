@@ -1,10 +1,17 @@
 import Bull = require("bull");
 
 export interface Queues {
-  [name: string]: { 
-    Q?: Bull.Queue; 
-    status?: Bull.JobStatus,
+  [name: string]: {
+    Q?: Bull.Queue;
+    // status?: Bull.JobStatus;
   };
+}
+
+interface HandleInterface {
+  id: string;
+  position: string;
+  style: object;
+  isConnectable: boolean;
 }
 
 export interface FlowNode {
@@ -33,18 +40,8 @@ export interface FlowNode {
       "wait-date"?: "";
       "wait-time"?: "";
     };
-    sourceHandle?: Array<{
-      id: string;
-      position: string;
-      style: object;
-      isConnectable: boolean;
-    }>;
-    targetHandle?: Array<{
-      id: string;
-      position: string;
-      style: object;
-      isConnectable: boolean;
-    }>;
+    sourceHandle?: Array<HandleInterface>;
+    targetHandle?: Array<HandleInterface>;
   };
 }
 
