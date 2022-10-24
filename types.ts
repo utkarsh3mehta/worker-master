@@ -9,7 +9,7 @@ export interface Queues {
 
 enum JOURNEY_STATUS {
   STARTED = "STARTED",
-  STOPPED = "STOPPED"
+  STOPPED = "STOPPED",
 }
 
 interface HandleInterface {
@@ -20,7 +20,7 @@ interface HandleInterface {
 }
 
 export interface FlowData {
-  elements: []
+  elements: [];
 }
 
 export interface FlowNode {
@@ -54,11 +54,78 @@ export interface FlowNode {
   };
 }
 
+enum SegmentType {
+  MOVIE_WISE,
+  GENRE_WISE,
+  TRANSACTION_WISE,
+  SEGMENT_WISE,
+  ALL,
+}
+
+enum ScheduleType {
+  WEEK,
+  MONTH,
+  DAY,
+}
+
+interface iSMSCampaignRecurring {
+  id: number;
+  smsCampaignId: number;
+  repeat_every: number;
+  scheduleType: ScheduleType | any;
+  week_days: string[];
+  month_days: number[];
+  type: string | any;
+  start_date: Date;
+  end_date?: Date;
+  scheduledAt: Date | any;
+  current_execute: Date;
+  next_execute: Date;
+}
+
+enum CampaignType {
+  ONE_TIME,
+  RECURRING,
+}
+
+enum CampaignStatus {
+  DRAFT,
+  READY,
+}
+
+enum CampaignRunningStatus {
+  START,
+  STOP,
+}
+
+export interface iSmsCampaign {
+  id: number;
+  name: string;
+  audience: number | any;
+  start_date: Date;
+  end_date: Date;
+  ssp: number;
+  sms_template: number;
+  text: string;
+  scheduledAt: Date | any;
+  segmentType?: SegmentType | any;
+  transaction_from?: string | any;
+  transaction_to?: string | any;
+  from_phone?: string;
+  movie_id: number[];
+  gener?: string | null;
+  type?: CampaignType | any;
+  status?: CampaignStatus | any;
+  tags?: string[];
+  runningStatus?: CampaignRunningStatus | any;
+  recurringdata?: iSMSCampaignRecurring | null;
+}
+
 export interface iJourneyMaster {
   id: number;
   name: string;
   status: JOURNEY_STATUS;
-  userId: number
+  userId: number;
   data: string;
   triggerType?: string;
 }

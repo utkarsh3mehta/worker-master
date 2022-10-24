@@ -30,7 +30,7 @@ async function onProcess(job: Bull.Job, done: Bull.DoneCallback) {
   if (nodeid === "send-email") await sendEmail(data.data);
   // else if (nodeid === "send-push-notification")
   //   await sendPushNotification(data.data);
-  else if (nodeid === "send-sms") await sendSMS(data.data);
+  else if (nodeid === "send-sms") await sendSMS(data);
   else if (nodeid === "add-to-segment") await addToSegment(data);
   return done(null, { nodeid });
 }
