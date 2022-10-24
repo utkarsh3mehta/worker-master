@@ -1,32 +1,63 @@
 import * as Bull from "bull";
-import { transactions } from "./api";
+import api, { transactions } from "./api";
 import { AxiosError } from "axios";
-import * as dotenv from 'dotenv'
+import * as dotenv from "dotenv";
+import { Data, iJourneyMaster } from "./types";
+import { startJourney } from "./main";
 
 dotenv.config();
 /**
  * steps:
- * create a queue
- * every 5 minutes, add 'make API calls' to queue
- * 
- *
+ * make API call for the last 5 minutes
+ * create an array of last 20 transactions id
+ * push new transaction ids and shift() the same number of ids from array
+ * ignore transactions that already exist in the list of array
+ * for new transactions IDs, get journeys who's trigger type is Booked or "Order F&B"
+ * start journey for each
  */
+
+let transactionIds: String[] = [];
+let transactionsFnbIds: String[] = [];
+let bookedJourneys: iJourneyMaster[] = [];
+let fnbJourneys: iJourneyMaster[] = [];
+
 const onAllProcess = (job: Bull.Job, done: Bull.DoneCallback) => {
   // let now = new Date();
   // let then = new Date(now);
   // then.setMinutes(then.getMinutes() - 5);
-  console.log('added all transactions API')
+  // console.log("added all transactions API");
   done();
-  // transactions
-  //   .get("/api/marketing/external/get-all-transactions")
-  //   .then((res) => {})
-  //   .catch((err) => {});
+  transactions
+    .get("/api/marketing/external/get-all-transactions?fromTime=&toTime=")
+    .then((res) => {
+      let transactions: Data[] = res.data;
+      let ids = transactions.map((t) => t._id.$oid);
+      let newids: String[] = [];
+      for (let id of ids) {
+        if (!transactionIds.includes(id)) {
+          newids.push(id);
+        }
+      }
+      if (transactionIds.length >= 20) {
+        for (let i = 0; i < newids.length; i++) {
+          transactionIds.shift();
+        }
+      }
+      transactionIds.push(...newids);
+      newids.forEach((id) => {
+        let transaction = transactions.find((t) => t._id.$oid === id);
+        bookedJourneys.forEach((j) => {
+          startJourney(j, transaction);
+        });
+      });
+    })
+    .catch((err: AxiosError) => {});
 };
 const onFnbProcess = (job: Bull.Job, done: Bull.DoneCallback) => {
   // let now = new Date();
   // let then = new Date(now);
   // then.setMinutes(then.getMinutes() - 5);
-  console.log('added fnb transactions API');
+  // console.log("added fnb transactions API");
   done();
   // transactions
   //   .get("/api/marketing/external/get-all-fnb-transactions")
@@ -38,6 +69,20 @@ function onActive(job: Bull.Job, jobPromise: Bull.JobPromise) {
 }
 function onWaiting(jobId: Bull.JobId) {
   console.log("waiting for", jobId);
+  api
+    .post("journey/trigger-type/get", { triggerType: "booked-ticket" })
+    .then((res) => {
+      let data: iJourneyMaster[] = res.data;
+      bookedJourneys = data;
+    })
+    .catch((err) => {});
+  api
+    .post("journey/trigger-type/get", { triggerType: "ordered-fnb" })
+    .then((res) => {
+      let data: iJourneyMaster[] = res.data;
+      fnbJourneys = data;
+    })
+    .catch((err) => {});
 }
 function onCleaned(jobs: Bull.Job[], status: Bull.JobStatusClean) {
   console.log(
