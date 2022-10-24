@@ -179,8 +179,7 @@ export const startJourney = async (journeyData: iJourneyMaster, data: Data) => {
   }
 
   if (!rootElement.id) {
-    console.error("No root element found");
-    process.exit(1);
+    throw new Error("No root element found");
   }
 
   const journey = new TreeModel();
