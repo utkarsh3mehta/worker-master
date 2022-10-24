@@ -19,6 +19,7 @@
     "bull-arena": "^3.29.5",
     "dotenv": "^16.0.3",
     "nodemailer": "^6.8.0",
-    "tree-model": "^1.0.7"
+    "tree-model": "^1.0.7",
+    "twilio": "^3.83.0"
   }
 }
