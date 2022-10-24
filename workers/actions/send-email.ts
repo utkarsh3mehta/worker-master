@@ -1,39 +1,27 @@
-import * as nodemailer from "nodemailer";
+import * as sendgrid from "@sendgrid/mail";
 import * as dotenv from "dotenv";
+import api from "../../api";
 
-import { Data } from "../../types";
+import { iEmailCompaign, MessageData } from "../../types";
 
 dotenv.config();
 
-export const sendEmail = async (data: Data) => {
-  let testAccount = await nodemailer.createTestAccount();
-
-  // create reusable transporter object using the default SMTP transport
-  let transporter = nodemailer.createTransport({
-    host: "smtp.ethereal.email",
-    port: 587,
-    secure: false, // true for 465, false for other ports
-    auth: {
-      user: testAccount.user, // generated ethereal user
-      pass: testAccount.pass, // generated ethereal password
-    },
-  });
-
-  // send mail with defined transport object
-  let info = await transporter.sendMail({
-    from: '"Fred Foo 👻" <foo@example.com>', // sender address
-    to: "bar@example.com, baz@example.com", // list of receivers
-    subject: "Hello ✔", // Subject line
-    text: "Hello world?", // plain text body
-    html: "<b>Hello world?</b>", // html body
-  });
-
-  console.log("Message sent: %s", info.messageId);
-  // Message sent: <b658f8ca-6296-ccf4-8306-87d57a0b4321@example.com>
-
-  // Preview only available when sending through an Ethereal account
-  console.log("Preview URL: %s", nodemailer.getTestMessageUrl(info));
-  // Preview URL: https://ethereal.email/message/WaQKMgKddxQDoou...
-  
-  return info;
+export const sendEmail = async (data: MessageData) => {
+  let campaignId = data.node.data.selectedValue["send-email"];
+  let emailResponse = await api.get(`emailCompaign/${campaignId}`);
+  if (!emailResponse) throw new Error("Error getting email campaign details");
+  let campaignData: iEmailCompaign = emailResponse.data;
+  let token = process.env.SENDGRID_TOKEN;
+  let from = campaignData.from_email || "vpsparsarmabihar@gmail.com";
+  sendgrid.setApiKey(token);
+  let msg: sendgrid.MailDataRequired = {
+    to: data.data.user_email,
+    from: from,
+    subject: campaignData.subject,
+    text: "and easy to do anywhere, even with Node.js",
+    html: "<strong>and easy to do anywhere, even with Node.js</strong>",
+  };
+  let [message, err] = await sendgrid.send(msg);
+  if (err) throw new Error(JSON.stringify(err));
+  console.log("message", message.statusCode);
 };

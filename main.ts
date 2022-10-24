@@ -27,7 +27,7 @@ async function onProcess(job: Bull.Job, done: Bull.DoneCallback) {
   // console.log("processing", job.queue.name, job.id);
   let data: MessageData = job.data;
   let nodeid = data.node.data.nodeid;
-  if (nodeid === "send-email") await sendEmail(data.data);
+  if (nodeid === "send-email") await sendEmail(data);
   // else if (nodeid === "send-push-notification")
   //   await sendPushNotification(data.data);
   else if (nodeid === "send-sms") await sendSMS(data);

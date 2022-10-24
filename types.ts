@@ -208,3 +208,45 @@ export interface MessageData {
   data: Data;
   node: FlowNode;
 }
+
+
+interface iEmailCampaignRecurring {
+  id: number;
+  emailCampaignId: number;
+  repeat_every: number;
+  scheduleType: ScheduleType | any;
+  week_days: string[];
+  month_days: number[];
+  type: string | any;
+  start_date: Date;
+  end_date?: Date;
+  scheduledAt: Date | any;
+  current_execute: Date;
+  next_execute: Date;
+}
+
+export interface iEmailCompaign {
+  id: number;
+  name: string;
+  audience: number | any;
+  start_date: Date;
+  end_date: Date;
+  esp: number;
+  from_name: string;
+  from_email: string;
+  subject: string;
+  rich_text: string | null;
+  email_template: number | any;
+  scheduledAt: Date | any;
+  movie_name?: string;
+  segmentType?: SegmentType | any;
+  transaction_from?: string | any;
+  transaction_to?: string | any;
+  movie_id: number[];
+  gener?: string | null;
+  type?: CampaignType | any;
+  status?: CampaignStatus | any;
+  tags?: string[];
+  runningStatus?: CampaignRunningStatus | any;
+  recurringdata?: iEmailCampaignRecurring | null;
+}
