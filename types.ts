@@ -7,11 +7,20 @@ export interface Queues {
   };
 }
 
+enum JOURNEY_STATUS {
+  STARTED = "STARTED",
+  STOPPED = "STOPPED"
+}
+
 interface HandleInterface {
   id: string;
   position: string;
   style: object;
   isConnectable: boolean;
+}
+
+export interface FlowData {
+  elements: []
 }
 
 export interface FlowNode {
@@ -43,6 +52,15 @@ export interface FlowNode {
     sourceHandle?: Array<HandleInterface>;
     targetHandle?: Array<HandleInterface>;
   };
+}
+
+export interface iJourneyMaster {
+  id: number;
+  name: string;
+  status: JOURNEY_STATUS;
+  userId: number
+  data: string;
+  triggerType?: string;
 }
 
 export interface Edge {
