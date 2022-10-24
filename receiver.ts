@@ -26,9 +26,8 @@ const onAllProcess = (job: Bull.Job, done: Bull.DoneCallback) => {
   // let then = new Date(now);
   // then.setMinutes(then.getMinutes() - 5);
   // console.log("added all transactions API");
-  done();
   transactions
-    .get("/api/marketing/external/get-all-transactions?fromTime=&toTime=")
+    .get("/api/marketing/external/get-all-transactions")
     .then((res) => {
       let transactions: Data[] = res.data;
       let ids = transactions.map((t) => t._id.$oid);
@@ -50,6 +49,7 @@ const onAllProcess = (job: Bull.Job, done: Bull.DoneCallback) => {
           startJourney(j, transaction);
         });
       });
+      done();
     })
     .catch((err: AxiosError) => {});
 };
