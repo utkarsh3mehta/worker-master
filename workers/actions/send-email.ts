@@ -15,7 +15,7 @@ export const sendEmail = async (data: MessageData) => {
   let from = campaignData.from_email || "vpsparsarmabihar@gmail.com";
   sendgrid.setApiKey(token);
   let msg: sendgrid.MailDataRequired = {
-    to: data.data.user_email,
+    to: data.data.user_email || data.data.guest_email,
     from: from,
     subject: campaignData.subject,
     text: "and easy to do anywhere, even with Node.js",

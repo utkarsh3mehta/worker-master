@@ -1,5 +1,5 @@
-import { Data } from "../../types";
+import { MessageData } from "../../types";
 
-export const sendPushNotification = async (data: Data) => {
+export const sendPushNotification = async (data: MessageData) => {
   console.log('sending a push notification')
 };

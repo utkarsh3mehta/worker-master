@@ -2,10 +2,11 @@ import * as Bull from "bull";
 import api from "./api";
 import { AxiosError } from "axios";
 import {
-  Data,
+  AllData,
   Edge,
   FlowData,
   FlowNode,
+  FnBData,
   iJourneyMaster,
   MessageData,
   Queues,
@@ -89,7 +90,10 @@ function onStalled(job: Bull.Job) {
   // console.log("stalled", job.queue.name, job.id);
 }
 
-export const startJourney = async (journeyData: iJourneyMaster, data: Data) => {
+export const startJourney = async (
+  journeyData: iJourneyMaster,
+  data: AllData | FnBData
+) => {
   let now = new Date().getTime();
   let queue_name = `_${journeyData.id}-${now}`;
   AllQueues[queue_name] = {};
@@ -115,36 +119,50 @@ export const startJourney = async (journeyData: iJourneyMaster, data: Data) => {
     (<unknown[]>flowData.elements.filter((e: any) => !isNaN(parseInt(e.id))))
   );
 
-  const buildWorkerTree = (node: TreeModel.Node<FlowNode>) => {
+  const buildWorkerTree = async (node: TreeModel.Node<FlowNode>) => {
     let myid = node.model.id;
     let type = node.model.type;
     let myelements: FlowNode[] = [];
     // console.log("node id", node.model.data.nodeid);
     if (type === "condition") {
+      let condition: boolean;
       let m = Math.round(Math.random());
       // console.log("true or false", !!m);
       switch (node.model.data.nodeid) {
         case "is-in-segment":
-        case "event-occured":
-        case "has-user-attribute":
-          if (m) {
-            myelements = elements.filter((e) =>
-              connections
-                .filter((c) => c.source === myid)
-                .filter((c) => c.sourceHandle.startsWith("true"))
-                .map((c) => c.target)
-                .includes(e.id)
-            );
+          let is_in_segment_response = await api.get(
+            `segment/${node.model.data.selectedValue["is-in-segment"]}/customer/${data.user_email}`
+          );
+          if (
+            !is_in_segment_response ||
+            is_in_segment_response.data.type === "error"
+          ) {
+            condition = false;
           } else {
-            myelements = elements.filter((e) =>
-              connections
-                .filter((c) => c.source === myid)
-                .filter((c) => c.sourceHandle.startsWith("false"))
-                .map((c) => c.target)
-                .includes(e.id)
-            );
+            condition = true;
           }
           break;
+        case "event-occured":
+        case "has-user-attribute":
+          condition = !!m;
+          break;
+      }
+      if (condition) {
+        myelements = elements.filter((e) =>
+          connections
+            .filter((c) => c.source === myid)
+            .filter((c) => c.sourceHandle.startsWith("true"))
+            .map((c) => c.target)
+            .includes(e.id)
+        );
+      } else {
+        myelements = elements.filter((e) =>
+          connections
+            .filter((c) => c.source === myid)
+            .filter((c) => c.sourceHandle.startsWith("false"))
+            .map((c) => c.target)
+            .includes(e.id)
+        );
       }
     } else {
       myelements = elements.filter((e) =>
