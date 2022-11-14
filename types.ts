@@ -161,7 +161,7 @@ export interface FlowNode {
       "send-push-notification"?: "";
       "add-to-segment"?: "";
       "is-in-segment"?: "";
-      "event-occured"?: "";
+      // "event-occured"?: "";
       "has-user-attribute"?: "";
       "wait-date"?: "";
       "wait-time"?: "";
