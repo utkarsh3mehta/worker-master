@@ -2,8 +2,9 @@ import * as Bull from "bull";
 import api, { transactions } from "./api";
 import { AxiosError } from "axios";
 import * as dotenv from "dotenv";
-import { AllData, FnBData, iJourneyMaster, MessageData } from "./types";
+import { AllData, FnBData, iJourneyMaster } from "./types";
 import { startJourney } from "./main";
+import { createClient } from "redis";
 
 dotenv.config();
 /**
@@ -16,55 +17,91 @@ dotenv.config();
  * start journey for each
  */
 
+const client = createClient();
+
 let transactionIds: number[] = [];
 let transactionsFnbIds: number[] = [];
 let bookedJourneys: iJourneyMaster[] = [];
 let fnbJourneys: iJourneyMaster[] = [];
 
+const getTimeGetParam = () => {
+  let now = new Date();
+  let then = new Date(now);
+  then.setMinutes(then.getMinutes() - 5);
+  return `?fromDate=${then.getFullYear()}-${
+    then.getMonth() + 1
+  }-${then.getDate()}&toDate=${now.getFullYear()}-${
+    now.getMonth() + 1
+  }-${now.getDate()}&fromTime=${then.getHours()}:${then.getMinutes()}
+  &toTime=${now.getHours()}:${now.getMinutes()}`;
+};
+
+console.log(getTimeGetParam());
+
+const getIds = async () => {
+  if (await client.exists(`${process.env.TRANSACTIONS}-transactionIds`)) {
+    transactionIds =
+      JSON.parse(
+        await client.get(`${process.env.TRANSACTIONS}-transactionIds`)
+      ) || [];
+  }
+  if (await client.exists(`${process.env.TRANSACTIONS}-transactionFnbIds`)) {
+    transactionsFnbIds =
+      JSON.parse(
+        await client.get(`${process.env.TRANSACTIONS}-transactionFnbIds`)
+      ) || [];
+  }
+};
+
+const setAllIds = async (ids: number[]) => {
+  await client.set(
+    `${process.env.TRANSACTIONS}-transactionIds`,
+    JSON.stringify(ids)
+  );
+};
+
+const setFnbIds = async (ids: number[]) => {
+  await client.set(
+    `${process.env.TRANSACTIONS}-transactionFnbIds`,
+    JSON.stringify(ids)
+  );
+};
+
 const onAllProcess = (job: Bull.Job, done: Bull.DoneCallback) => {
-  console.log("processing all", job.queue.name, job.id);
   api
     .post("journey/trigger-type/get", { triggerType: "booked-ticket" })
     .then((res) => {
       bookedJourneys = res.data.data;
       // console.log("booked journeys", bookedJourneys);
-      let now = new Date();
-      let then = new Date(now);
-      then.setDate(then.getDate() - 1);
       transactions
-        .get(
-          `/api/marketing/external/get-all-transactions?fromDate=${then.getFullYear()}-${
-            then.getMonth() + 1
-          }-${then.getDate()}&toDate=${now.getFullYear()}-${
-            now.getMonth() + 1
-          }-${now.getDate()}`
-        )
+        .get(`/api/marketing/external/get-all-transactions${getTimeGetParam()}`)
         .then(async (res) => {
           // console.log("all transactions response", res.data);
+          await getIds();
           let transactions: AllData[] = res.data;
-          let ids = transactions.map((t) => t.transaction_number);
-          console.log("transactions", ids);
-          let newids: number[] = [];
-          for (let id of ids) {
-            if (!transactionIds.includes(id)) {
-              newids.push(id);
+          if (transactions.length) {
+            let ids = transactions.map((t) => t.transaction_number);
+            console.log("transactions", ids);
+            let newids: number[] = [];
+            for (let id of ids) {
+              if (!transactionIds.includes(id)) {
+                newids.push(id);
+              }
             }
-          }
-          console.log("new ids", newids);
-          if (transactionIds.length >= 20) {
-            for (let i = 0; i < newids.length; i++) {
-              transactionIds.shift();
+            console.log("new ids", newids);
+            if (transactionIds.length >= 20) {
+              transactionIds.splice(0, newids.length);
             }
-          }
-          console.log("existing transactions ids", transactionIds);
-          transactionIds.push(...newids);
-          for (const id of newids) {
-            let transaction = transactions.find(
-              (t) => t.transaction_number === id
-            );
-            for (const j of bookedJourneys) {
-              console.log("starting journey", j.name, "for id", id);
-              await startJourney(j, transaction);
+            console.log("existing transactions ids", transactionIds);
+            transactionIds.push(...newids);
+            setAllIds(transactionIds);
+            for (const id of newids) {
+              let transaction = transactions.find(
+                (t) => t.transaction_number === id
+              );
+              for (const j of bookedJourneys) {
+                await startJourney(j, transaction);
+              }
             }
           }
           done();
@@ -79,57 +116,42 @@ const onAllProcess = (job: Bull.Job, done: Bull.DoneCallback) => {
     });
 };
 const onFnbProcess = (job: Bull.Job, done: Bull.DoneCallback) => {
-  console.log("processing fnb", job.queue.name, job.id);
+  // console.log("processing fnb", job.queue.name, job.id);
   api
     .post("journey/trigger-type/get", { triggerType: "ordered-f-and-b" })
     .then((res) => {
       fnbJourneys = res.data.data;
       // console.log("fnb journeys", fnbJourneys);
-      let now = new Date();
-      let then = new Date(now);
-      then.setDate(then.getDate() - 1);
       transactions
         .get(
-          `/api/marketing/external/get-all-fnb-transactions?fromDate=${then.getFullYear()}-${
-            then.getMonth() + 1
-          }-${then.getDate()}&toDate=${now.getFullYear()}-${
-            now.getMonth() + 1
-          }-${now.getDate()}`
+          `/api/marketing/external/get-all-fnb-transactions${getTimeGetParam()}`
         )
         .then(async (res) => {
-          console.log("fnb transactions response", res.data);
+          // console.log("fnb transactions response", res.data);
+          await getIds();
           let transactions: FnBData[] = res.data.Records.data;
-          let ids = transactions.map((t) => t.transaction_number);
-          console.log("fnb ids", ids);
-          let newids: number[] = [];
-          for (let id of ids) {
-            if (!transactionsFnbIds.includes(id)) {
-              newids.push(id);
+          if (transactions.length) {
+            let ids = transactions.map((t) => t.transaction_number);
+            console.log("fnb ids", ids);
+            let newids: number[] = [];
+            for (let id of ids) {
+              if (!transactionsFnbIds.includes(id)) {
+                newids.push(id);
+              }
             }
-          }
-          console.log("new fnb ids", newids);
-          if (transactionsFnbIds.length >= 20) {
-            for (let i = 0; i < newids.length; i++) {
-              transactionsFnbIds.shift();
+            console.log("new fnb ids", newids);
+            if (transactionsFnbIds.length >= 20) {
+              transactionIds.splice(0, newids.length);
             }
-          }
-          console.log("existing fnb transaction ids", transactionsFnbIds);
-          transactionsFnbIds.push(...newids);
-          for (const id of newids) {
-            // console.log("newid", id);
-            let transaction = transactions.find(
-              (t) => t.transaction_number === id
-            );
-            // for (const j of fnbJourneys) {
-            //   console.log("journey", j.name);
-            //   console.log(
-            //     "starting journey",
-            //     j.name,
-            //     "for data number",
-            //     transaction.transaction_number
-            //   );
-            // }
-            for (const j of fnbJourneys) await startJourney(j, transaction);
+            console.log("existing fnb transaction ids", transactionsFnbIds);
+            transactionsFnbIds.push(...newids);
+            setFnbIds(transactionsFnbIds);
+            for (const id of newids) {
+              let transaction = transactions.find(
+                (t) => t.transaction_number === id
+              );
+              for (const j of fnbJourneys) await startJourney(j, transaction);
+            }
           }
           done(null);
         })
@@ -182,7 +204,8 @@ function onStalled(job: Bull.Job) {
   console.log("stalled", job.queue.name, job.id);
 }
 
-const receiverApiCalls = () => {
+const receiverApiCalls = async () => {
+  await client.connect();
   const transactions = new Bull(process.env.TRANSACTIONS);
   transactions.on("active", onActive);
   transactions.on("cleaned", onCleaned);
