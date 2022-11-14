@@ -1,6 +1,5 @@
 import * as Bull from "bull";
 import api from "./api";
-import { AxiosError } from "axios";
 import {
   AllData,
   Edge,
@@ -12,7 +11,7 @@ import {
   Queues,
 } from "./types";
 import * as TreeModel from "tree-model";
-// import * as dotenv from "dotenv";
+import * as dotenv from "dotenv";
 import {
   addToSegment,
   sendEmail,
@@ -20,7 +19,7 @@ import {
   sendSMS,
 } from "./workers";
 
-// dotenv.config();
+dotenv.config();
 
 const AllQueues: Queues = {};
 
@@ -28,11 +27,20 @@ async function onProcess(job: Bull.Job, done: Bull.DoneCallback) {
   // console.log("processing", job.queue.name, job.id);
   let data: MessageData = job.data;
   let nodeid = data.node.data.nodeid;
-  if (nodeid === "send-email") await sendEmail(data);
+  // console.log("nodeid", nodeid);
+  if (nodeid === "send-email") {
+    console.log("sending email");
+    // await sendEmail(data);
+  }
   // else if (nodeid === "send-push-notification")
   //   await sendPushNotification(data.data);
-  else if (nodeid === "send-sms") await sendSMS(data);
-  else if (nodeid === "add-to-segment") await addToSegment(data);
+  else if (nodeid === "send-sms") {
+    console.log("sending sms");
+    // await sendSMS(data);
+  } else if (nodeid === "add-to-segment") {
+    console.log("adding to segment");
+    // await addToSegment(data);
+  }
   return done(null, { nodeid });
 }
 function onActive(job: Bull.Job, jobPromise: Bull.JobPromise) {
@@ -122,31 +130,32 @@ export const startJourney = async (
   const buildWorkerTree = async (node: TreeModel.Node<FlowNode>) => {
     let myid = node.model.id;
     let type = node.model.type;
+    let mynodeid = node.model.data.nodeid;
     let myelements: FlowNode[] = [];
     // console.log("node id", node.model.data.nodeid);
     if (type === "condition") {
       let condition: boolean;
       let m = Math.round(Math.random());
-      // console.log("true or false", !!m);
-      switch (node.model.data.nodeid) {
-        case "is-in-segment":
-          let is_in_segment_response = await api.get(
-            `segment/${node.model.data.selectedValue["is-in-segment"]}/customer/${data.user_email}`
-          );
-          if (
-            !is_in_segment_response ||
-            is_in_segment_response.data.type === "error"
-          ) {
-            condition = false;
-          } else {
-            condition = true;
+      console.log("true or false", !!m);
+      if (mynodeid === "is-in-segment") {
+        let is_in_segment_response = await api.post(
+          `segment/${node.model.data.selectedValue["is-in-segment"]}/customer`,
+          {
+            emailId: data.cust_email || data.guest_email,
           }
-          break;
-        case "event-occured":
-        case "has-user-attribute":
-          condition = !!m;
-          break;
+        );
+        if (
+          !is_in_segment_response ||
+          is_in_segment_response.data.type === "error"
+        ) {
+          condition = false;
+        } else {
+          condition = true;
+        }
+      } else if (mynodeid === "has-user-attribute") {
+        condition = !!m;
       }
+      // else if (mynodeid === 'event-occured') {}
       if (condition) {
         myelements = elements.filter((e) =>
           connections
@@ -226,8 +235,8 @@ export const startJourney = async (
     ) {
       if (n.node.data.nodeid === "wait-date") {
         let date = new Date(n.node.data.selectedValue["wait-date"]);
-        let diff = Math.abs(now - date.getTime());
-        delay += diff;
+        let diff = now - date.getTime();
+        if (diff > 0) delay += diff;
       } else {
         let time = new Date();
         let selectedTime = n.node.data.selectedValue["wait-time"]
@@ -235,8 +244,8 @@ export const startJourney = async (
           .map((v) => parseInt(v));
         time.setHours(selectedTime[0]);
         time.setMinutes(selectedTime[1]);
-        let diff = Math.abs(now - time.getTime());
-        delay += diff;
+        let diff = now - time.getTime();
+        if (diff > 0) delay += diff;
       }
     } else {
       await AllQueues[queue_name].Q.add(n, { delay });
