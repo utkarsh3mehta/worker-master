@@ -12,8 +12,8 @@ dotenv.config();
 
 const makeApiCalls = () => {
   const transactions = new Bull(process.env.TRANSACTIONS);
-  transactions.add("all", {}, { repeat: { every: 300000, limit: 3 } });
-  transactions.add("fnb", {}, { repeat: { every: 300000, limit: 3 } });
+  transactions.add("all", {}, { repeat: { every: 300000 } });
+  transactions.add("fnb", {}, { repeat: { every: 300000 } });
   // process.exit(0)
 };
 
