@@ -78,7 +78,7 @@ const onAllProcess = (job: Bull.Job, done: Bull.DoneCallback) => {
         .then(async (res) => {
           // console.log("all transactions response", res.data);
           await getIds();
-          let transactions: AllData[] = res.data;
+          let transactions: AllData[] = res.data.Records.data;
           if (transactions.length) {
             let ids = transactions.map((t) => t.transaction_number);
             console.log("transactions", ids);
