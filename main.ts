@@ -138,19 +138,23 @@ export const startJourney = async (
       let m = Math.round(Math.random());
       console.log("true or false", !!m);
       if (mynodeid === "is-in-segment") {
-        let is_in_segment_response = await api.post(
-          `segment/${node.model.data.selectedValue["is-in-segment"]}/customer`,
-          {
-            emailId: data.cust_email || data.guest_email,
+        try {
+          let is_in_segment_response = await api.post(
+            `segment/${node.model.data.selectedValue["is-in-segment"]}/customer`,
+            {
+              emailId: data.cust_email || data.guest_email || undefined,
+            }
+          );
+          if (
+            !is_in_segment_response ||
+            is_in_segment_response.data.type === "error"
+          ) {
+            condition = false;
+          } else {
+            condition = true;
           }
-        );
-        if (
-          !is_in_segment_response ||
-          is_in_segment_response.data.type === "error"
-        ) {
+        } catch {
           condition = false;
-        } else {
-          condition = true;
         }
       } else if (mynodeid === "has-user-attribute") {
         condition = !!m;
@@ -181,11 +185,11 @@ export const startJourney = async (
           .includes(e.id)
       );
     }
-    myelements.forEach((e) => {
+    for (const e of myelements) {
       let thisnode = journey.parse(e);
       node.addChild(thisnode);
-      buildWorkerTree(thisnode);
-    });
+      await buildWorkerTree(thisnode);
+    }
   };
 
   let rootElement: FlowNode = {
@@ -212,7 +216,7 @@ export const startJourney = async (
   const journey = new TreeModel();
 
   const root = journey.parse(rootElement);
-  buildWorkerTree(root);
+  await buildWorkerTree(root);
 
   let strategy: TreeModel.StrategyName = "pre"; // possible strategy to be used: breadth & pre
   let nodes: MessageData[] = [];
