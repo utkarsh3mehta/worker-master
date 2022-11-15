@@ -1,5 +1,3 @@
-import { createClient } from "redis";
-import { RepeatJobs } from "./types";
 import * as Bull from "bull";
 import * as dotenv from "dotenv";
 
