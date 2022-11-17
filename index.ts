@@ -10,11 +10,11 @@ dotenv.config();
  *
  */
 
-const makeApiCalls = () => {
+const makeApiCalls = async () => {
   const transactions = new Bull(process.env.TRANSACTIONS);
-  transactions.add("all", {}, { repeat: { every: 300000 } });
-  transactions.add("fnb", {}, { repeat: { every: 300000 } });
-  // process.exit(0)
+  await transactions.add("all", {}, { repeat: { every: 120000 } });
+  await transactions.add("fnb", {}, { repeat: { every: 120000 } });
+  process.exit(0);
 };
 
 makeApiCalls();
