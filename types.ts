@@ -103,6 +103,21 @@ interface iEmailCampaignRecurring {
   next_execute: Date;
 }
 
+enum Email_status {
+  DRAFT,
+  READY,
+}
+interface EmailMaster {
+  id: number;
+  name: string;
+  status: Email_status;
+  email_body: string;
+  html: string;
+  userId: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface iEmailCompaign {
   id: number;
   name: string;
@@ -127,6 +142,7 @@ export interface iEmailCompaign {
   tags?: string[];
   runningStatus?: CampaignRunningStatus | any;
   recurringdata?: iEmailCampaignRecurring | null;
+  emailMaster?: EmailMaster;
 }
 
 export interface Queues {
@@ -165,6 +181,8 @@ export interface FlowNode {
       "has-user-attribute"?: "";
       "wait-date"?: "";
       "wait-time"?: "";
+      "wait-days"?: "";
+      "wait-minutes"?: "";
     };
     sourceHandle?: Array<HandleInterface>;
     targetHandle?: Array<HandleInterface>;

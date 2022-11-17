@@ -18,8 +18,11 @@ export const sendEmail = async (data: MessageData) => {
     to: data.data.user_email || data.data.guest_email,
     from: from,
     subject: campaignData.subject,
-    text: "and easy to do anywhere, even with Node.js",
-    html: "<strong>and easy to do anywhere, even with Node.js</strong>",
+    html: !!campaignData.rich_text
+      ? campaignData.rich_text
+      : !!campaignData.emailMaster?.html
+      ? campaignData.emailMaster?.html
+      : "",
   };
   let [message, err] = await sendgrid.send(msg);
   if (err) throw new Error(JSON.stringify(err));
