@@ -21,6 +21,9 @@ import {
 
 dotenv.config();
 
+const oneMinute = 60 * 1000;
+const oneDay = oneMinute * 60 * 24;
+
 const AllQueues: Queues = {};
 
 async function onProcess(job: Bull.Job, done: Bull.DoneCallback) {
@@ -235,13 +238,15 @@ export const startJourney = async (
     // console.log("adding to queue", n.node.data.nodeid);
     if (
       n.node.data.nodeid === "wait-date" ||
-      n.node.data.nodeid === "wait-time"
+      n.node.data.nodeid === "wait-time" ||
+      n.node.data.nodeid === "wait-days" ||
+      n.node.data.nodeid === "wait-minutes"
     ) {
       if (n.node.data.nodeid === "wait-date") {
         let date = new Date(n.node.data.selectedValue["wait-date"]);
         let diff = now - date.getTime();
         if (diff > 0) delay += diff;
-      } else {
+      } else if (n.node.data.nodeid === "wait-time") {
         let time = new Date();
         let selectedTime = n.node.data.selectedValue["wait-time"]
           .split(":")
@@ -250,6 +255,14 @@ export const startJourney = async (
         time.setMinutes(selectedTime[1]);
         let diff = now - time.getTime();
         if (diff > 0) delay += diff;
+      } else if (n.node.data.nodeid === "wait-days") {
+        let selectedDays = parseInt(n.node.data.selectedValue["wait-days"]);
+        delay += selectedDays * oneDay;
+      } else if (n.node.data.nodeid === "wait-minutes") {
+        let selectedMinutes = parseInt(
+          n.node.data.selectedValue["wait-minutes"]
+        );
+        delay += selectedMinutes * oneMinute;
       }
     } else {
       await AllQueues[queue_name].Q.add(n, { delay });
