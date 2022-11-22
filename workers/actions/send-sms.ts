@@ -1,7 +1,7 @@
 import { iSmsCampaign, MessageData } from "../../types";
 import * as Twilio from "twilio";
 import api from "../../api";
-import * as dotenv from 'dotenv'
+import * as dotenv from "dotenv";
 
 dotenv.config();
 
@@ -18,7 +18,11 @@ export const sendSMS = async (data: MessageData) => {
     const message = await client.messages.create({
       from: campaignData.from_phone || process.env.TWILIO_PHONE_NUMBER,
       to: data.data.user_mobile_number || data.data.guest_mobile.toString(),
-      body: campaignData.text,
+      body: !!campaignData.text
+        ? campaignData.text
+        : !!campaignData.smsMaster?.message
+        ? campaignData.smsMaster?.message
+        : "",
     });
     if (message) {
       console.log("Message sent successfully.");

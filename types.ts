@@ -56,6 +56,16 @@ enum CampaignRunningStatus {
   STOP,
 }
 
+interface SmsMaster {
+  id: number;
+  name: string;
+  status: Email_status;
+  message: string;
+  userId: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface iSmsCampaign {
   id: number;
   name: string;
@@ -77,6 +87,7 @@ export interface iSmsCampaign {
   tags?: string[];
   runningStatus?: CampaignRunningStatus | any;
   recurringdata?: iSMSCampaignRecurring | null;
+  smsMaster?: SmsMaster;
 }
 
 export interface iJourneyMaster {
