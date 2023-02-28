@@ -15,5 +15,7 @@ export const addToSegment = async (data: MessageData) => {
     if (!response) {
       console.error("error adding user to segment");
     }
-  } catch (e) {}
+  } catch (e) {
+    console.error("error adding user to segment");
+  }
 };
