@@ -28,12 +28,13 @@ const getTimeGetParam = () => {
   let now = new Date();
   let then = new Date(now);
   then.setMinutes(then.getMinutes() - 5);
-  return `?fromDate=${then.getFullYear()}-${
-    then.getMonth() + 1
-  }-${then.getDate()}&toDate=${now.getFullYear()}-${
-    now.getMonth() + 1
-  }-${now.getDate()}&fromTime=${then.getHours()}:${then.getMinutes()}
-  &toTime=${now.getHours()}:${now.getMinutes()}`;
+  return `?fromDate=2022-11-6&toDate=2022-11-7&fromTime=23:57&toTime=00:05`;
+  // return `?fromDate=${then.getFullYear()}-${
+  //   then.getMonth() + 1
+  // }-${then.getDate()}&toDate=${now.getFullYear()}-${
+  //   now.getMonth() + 1
+  // }-${now.getDate()}&fromTime=${then.getHours()}:${then.getMinutes()}
+  // &toTime=${now.getHours()}:${now.getMinutes()}`;
 };
 
 console.log(getTimeGetParam());

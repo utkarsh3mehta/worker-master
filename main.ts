@@ -265,6 +265,7 @@ export const startJourney = async (
         delay += selectedMinutes * oneMinute;
       }
     } else {
+      console.log("delay", delay);
       await AllQueues[queue_name].Q.add(n, { delay });
     }
     // console.log("delay", delay);
